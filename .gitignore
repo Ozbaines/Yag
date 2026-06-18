@@ -1,0 +1,33 @@
+# secrets
+.env
+
+# virtual envs
+yag-env/
+venv/
+.venv/
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# storage (large media files)
+storage/media/
+storage/clips/
+storage/drafts/
+storage/dubbed/
+
+# torch hub cache (model weights downloaded on first run)
+.cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# landing
+landing/node_modules/
+landing/.next/
+
+# logs
+*.log

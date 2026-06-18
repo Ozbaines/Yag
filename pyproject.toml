@@ -1,0 +1,54 @@
+[project]
+name = "yag"
+version = "0.1.0"
+description = "Viral video content automation for Telegram + Reels + Shorts"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.40.0",
+    "aiogram>=3.13.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30.0",
+    "alembic>=1.14.0",
+    "redis>=5.2.0",
+    "arq>=0.26.1",
+    "httpx>=0.28.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.6.0",
+    "python-dotenv>=1.0.1",
+    "loguru>=0.7.2",
+    "yt-dlp>=2024.12.13",
+    "openai-whisper>=20240930",
+    "ffmpeg-python>=0.2.0",
+    "asyncpraw>=7.8.0",
+    "tweepy>=4.14.0",
+    "google-api-python-client>=2.154.0",
+    "google-auth-oauthlib>=1.2.1",
+    "yookassa>=3.5.0",
+    "feedparser>=6.0.11",
+    "apscheduler>=3.10.4",
+    "pillow>=11.0.0",
+    "tenacity>=9.0.0",
+    "edge-tts>=6.1.12",
+    "omegaconf>=2.3.0",
+    "soundfile>=0.12.1",
+    "certifi>=2024.0.0",
+]
+
+# GPU / TTS dependencies — install separately after cloning:
+#
+#   Windows (RTX 4060, CUDA 12.x):
+#     pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121
+#
+#   Mac (CPU only):
+#     pip install torch torchaudio
+#
+# Then for high-quality TTS (XTTS-v2):
+#     pip install TTS
+#
+# Silero model is downloaded automatically on first run via torch.hub
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["shared*", "content_engine*", "tg_admin_bot*", "tg_subscriber_bot*", "publisher*", "video_factory*", "payments*", "dub_factory*"]
