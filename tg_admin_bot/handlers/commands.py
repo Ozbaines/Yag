@@ -23,6 +23,8 @@ async def cmd_start(msg: Message) -> None:
         "Команды:\n"
         "/stats — статистика драфтов\n"
         "/pending — последние ожидающие\n"
+        "/dataset_stats — статистика датасета озвучки\n"
+        "/export_dataset — скачать JSONL для файн-тюна\n"
         "/help — помощь"
     )
 

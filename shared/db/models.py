@@ -105,6 +105,38 @@ class Subscriber(Base):
     paid_until: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
 
+class DubDataset(Base):
+    """One entry per dubbed video — stores LLM I/O for future fine-tuning."""
+
+    __tablename__ = "dub_dataset"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    draft_id: Mapped[int] = mapped_column(
+        ForeignKey("drafts.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    source_url: Mapped[str] = mapped_column(Text)
+    source_title: Mapped[str] = mapped_column(Text)
+    llm_model: Mapped[str] = mapped_column(String(128))
+
+    # Raw text sent to the clip-selection LLM (sampled transcript)
+    transcript_input: Mapped[str] = mapped_column(Text)
+    # Full JSON response from the LLM (clips, title, caption, hashtags)
+    clips_output: Mapped[Optional[dict]] = mapped_column(JSON)
+    # [{clip_topic, en_text, ru_text}, ...] — one entry per produced clip
+    narrations: Mapped[Optional[list]] = mapped_column(JSON)
+
+    clip_count: Mapped[int] = mapped_column(Integer, default=0)
+    duration_sec: Mapped[Optional[int]] = mapped_column(Integer)
+
+    # 1 = 👎 Плохо, 2 = 👍 Хорошо, 3 = ⭐ Отлично — NULL until admin rates
+    rating: Mapped[Optional[int]] = mapped_column(Integer)
+    rated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class PaymentStatus(str, enum.Enum):
     pending = "pending"
     succeeded = "succeeded"

@@ -106,6 +106,18 @@ async def main() -> None:
 
     draft_id = await save_draft(item, result)
     if draft_id:
+        from dub_factory.dataset import save_entry as save_dataset_entry
+        ds = result.get("_dataset", {})
+        await save_dataset_entry(
+            draft_id=draft_id,
+            source_url=item["url"],
+            source_title=item["title"],
+            transcript_input=ds.get("transcript_input", ""),
+            clips_output=ds.get("clips_output", {}),
+            narrations=ds.get("narrations", []),
+            clip_count=ds.get("clip_count", 0),
+            duration_sec=result["duration"],
+        )
         await push(Q_DRAFT_REVIEW, {"draft_id": draft_id})
         logger.info("Queued dubbed draft #{} | {}", draft_id, result["title"][:60])
 

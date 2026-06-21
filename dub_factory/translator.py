@@ -68,29 +68,35 @@ async def quick_score(title: str, views: int, likes: int, duration: int, region:
         return 0.0, False
 
 
-async def select_history_clips(segments: list[dict], total_sec: float) -> dict | None:
-    """Ask LLM to pick 4-6 historical moments totaling 2-4 min. Returns clip plan dict."""
+async def select_history_clips(
+    segments: list[dict], total_sec: float
+) -> tuple[dict | None, str]:
+    """Ask LLM to pick historical clips. Returns (clip_plan_dict, llm_input_text)."""
     if not segments:
-        return None
+        return None, ""
     # Sample evenly across the full video (max 120 segments ≈ ~3k tokens)
     step = max(1, len(segments) // 120)
     sampled = segments[::step][:120]
     lines = [f"[{s['start']:.0f}s] {s['text'].strip()}" for s in sampled]
+    llm_input = (
+        f"Длительность видео: {total_sec:.0f}с\n\nТранскрипт (каждый ~{step * 5}с):\n"
+        + "\n".join(lines)
+    )
     try:
         data = await claude.complete_json(
             system=_HISTORY_CLIPS_SYSTEM,
-            user=f"Длительность видео: {total_sec:.0f}с\n\nТранскрипт (каждый ~{step * 5}с):\n" + "\n".join(lines),
+            user=llm_input,
             max_tokens=2048,
         )
         await asyncio.sleep(4)
         clips = data.get("clips", [])
         if not clips:
-            return None
-        return data
+            return None, llm_input
+        return data, llm_input
     except Exception as e:
         logger.error("select_history_clips failed: {}", e)
         await asyncio.sleep(15)
-        return None
+        return None, llm_input
 
 
 async def narrate_clip(segments: list[dict]) -> str:

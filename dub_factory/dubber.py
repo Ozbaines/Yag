@@ -146,8 +146,8 @@ async def dub_history_video(item: dict) -> dict | None:
         source.unlink(missing_ok=True)
         return None
 
-    # 3. LLM selects 4-6 historical moments
-    plan = await select_history_clips(segments, total)
+    # 3. LLM selects historical moments
+    plan, llm_input = await select_history_clips(segments, total)
     if not plan or not plan.get("clips"):
         logger.error("LLM clip selection failed for {}", url)
         source.unlink(missing_ok=True)
@@ -162,6 +162,7 @@ async def dub_history_video(item: dict) -> dict | None:
     out_dir = settings.storage_path / "dubbed"
     out_dir.mkdir(parents=True, exist_ok=True)
     tmp_clips: list[Path] = []
+    narrations: list[dict] = []  # collected for dataset
 
     for i, clip_def in enumerate(clips_plan):
         try:
@@ -173,6 +174,8 @@ async def dub_history_video(item: dict) -> dict | None:
             if not win_segs:
                 logger.warning("No segments in clip {}: {:.0f}-{:.0f}s", i, start, end)
                 continue
+
+            en_text = " ".join(s["text"].strip() for s in win_segs if s.get("text"))
 
             # Translate to Russian narration
             ru_text = await narrate_clip(win_segs)
@@ -195,6 +198,11 @@ async def dub_history_video(item: dict) -> dict | None:
 
             if clip_out.exists() and _get_duration(clip_out) > 1:
                 tmp_clips.append(clip_out)
+                narrations.append({
+                    "clip_topic": clip_def.get("topic", ""),
+                    "en_text": en_text,
+                    "ru_text": ru_text,
+                })
                 logger.info("  clip {}: {:.0f}-{:.0f}s ({:.0f}s) OK", i, start, end, end - start)
             else:
                 clip_out.unlink(missing_ok=True)
@@ -248,4 +256,10 @@ async def dub_history_video(item: dict) -> dict | None:
         "title": plan.get("title", item["title"]),
         "duration": int(duration),
         "tts_ok": True,
+        "_dataset": {
+            "transcript_input": llm_input,
+            "clips_output": plan,
+            "narrations": narrations,
+            "clip_count": len(narrations),
+        },
     }

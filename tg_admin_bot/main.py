@@ -13,7 +13,7 @@ from shared.logger import logger
 from shared.queue import Q_DRAFT_REVIEW, pop
 from tg_admin_bot.handlers import router
 from tg_admin_bot.handlers.review import _format_draft
-from tg_admin_bot.keyboards import draft_review_kb_with_source
+from tg_admin_bot.keyboards import draft_review_kb_with_source, dubbed_review_kb
 
 
 async def draft_dispatcher(bot: Bot) -> None:
@@ -38,6 +38,7 @@ async def draft_dispatcher(bot: Bot) -> None:
             try:
                 local_path = d.media_local_path
                 is_dubbed = (d.extra or {}).get("dubbed", False)
+                kb = dubbed_review_kb(d.id, d.source_url) if is_dubbed else kb
 
                 if is_dubbed and local_path and __import__("pathlib").Path(local_path).exists():
                     # Send actual dubbed video file
