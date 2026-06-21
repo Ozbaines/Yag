@@ -36,18 +36,17 @@ dependencies = [
     "certifi>=2024.0.0",
 ]
 
-# GPU / TTS dependencies — install separately after cloning:
+# GPU / TTS — установить отдельно после клонирования:
 #
-#   Windows (RTX 4060, CUDA 12.x):
+#   Windows RTX 4060 (CUDA 12.x):
 #     pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121
-#
-#   Mac (CPU only):
-#     pip install torch torchaudio
-#
-# Then for high-quality TTS (XTTS-v2):
 #     pip install TTS
 #
-# Silero model is downloaded automatically on first run via torch.hub
+#   Mac (CPU, только для разработки):
+#     pip install torch torchaudio
+#     pip install TTS
+#
+# XTTS-v2 модель (~1.8 ГБ) скачивается автоматически при первом запуске.
 
 [tool.setuptools.packages.find]
 where = ["."]

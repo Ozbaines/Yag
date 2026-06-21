@@ -30,9 +30,12 @@ async def transcribe(
         return []
 
     def _run() -> list[dict]:
+        import torch
         _fix_ssl()
-        model = whisper.load_model(model_size)
-        kwargs: dict = {"task": "transcribe", "verbose": False, "fp16": False}
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        fp16 = device == "cuda"
+        model = whisper.load_model(model_size, device=device)
+        kwargs: dict = {"task": "transcribe", "verbose": False, "fp16": fp16}
         if language:
             kwargs["language"] = language
         result = model.transcribe(str(video_path), **kwargs)

@@ -1,98 +1,129 @@
-"""Russian TTS using Silero (on-prem PyTorch model)."""
+"""Russian TTS using XTTS-v2 (Coqui) — GPU-accelerated on CUDA, CPU fallback."""
 import asyncio
-import ssl
 from pathlib import Path
 
 from shared.logger import logger
 
+# Built-in XTTS-v2 speaker for Russian narration (documentary style).
+# Full list: tts.speakers  — swap anytime without redownloading the model.
+DEFAULT_SPEAKER = "Gitta Nikolina"  # clear female voice, works well in Russian
+MODEL_NAME = "tts_models/multilingual/multi-dataset/xtts_v2"
 
-def _fix_ssl() -> None:
-    try:
-        import certifi
-        ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where())
-    except Exception:
-        pass
-
-SPEAKER = "xenia"   # female, good intonation; options: aidar, baya, kseniya, xenia, eugene
-SAMPLE_RATE = 48000
-
-_model = None
+_tts = None
 
 
 def _load_model():
-    global _model
-    if _model is None:
+    global _tts
+    if _tts is None:
         import torch
-        _fix_ssl()
-        logger.info("Loading Silero TTS model...")
-        model, _ = torch.hub.load(
-            repo_or_dir="snakers4/silero-models",
-            model="silero_tts",
-            language="ru",
-            speaker="v3_1_ru",
-            trust_repo=True,
-        )
-        model.to(torch.device("cpu"))
-        _model = model
-        logger.info("Silero TTS ready")
-    return _model
+        from TTS.api import TTS
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        logger.info("Loading XTTS-v2 on {}...", device)
+        _tts = TTS(MODEL_NAME).to(device)
+        logger.info("XTTS-v2 ready | speakers: {}", len(_tts.speakers))
+    return _tts
 
 
-def _generate(text: str, out_path: Path) -> bool:
-    import torch
-    import tempfile
-    model = _load_model()
-    MAX_CHARS = 800
-    chunks = _split_text(text, MAX_CHARS)
-    audio_parts = []
-    for chunk in chunks:
-        if not chunk.strip():
-            continue
-        audio = model.apply_tts(text=chunk.strip(), speaker=SPEAKER, sample_rate=SAMPLE_RATE)
-        audio_parts.append(audio)
-    if not audio_parts:
-        return False
-    combined = torch.cat(audio_parts)
-    # Save via soundfile (avoids torchaudio/torchcodec dependency)
-    try:
-        import soundfile as sf
-        sf.write(str(out_path), combined.numpy(), SAMPLE_RATE)
-    except ImportError:
-        # Fallback: save via scipy
-        import scipy.io.wavfile as wav
-        import numpy as np
-        wav.write(str(out_path), SAMPLE_RATE, combined.numpy().astype(np.float32))
+def _generate(text: str, out_path: Path, speaker: str, speaker_wav: str | None) -> bool:
+    tts = _load_model()
+    kwargs = dict(
+        text=text,
+        language="ru",
+        file_path=str(out_path),
+    )
+    if speaker_wav:
+        # Voice cloning mode
+        kwargs["speaker_wav"] = speaker_wav
+    else:
+        # Built-in speaker mode
+        kwargs["speaker"] = speaker
+
+    tts.tts_to_file(**kwargs)
     return out_path.exists() and out_path.stat().st_size > 0
 
 
-def _split_text(text: str, max_chars: int) -> list[str]:
-    """Split on sentence boundaries to stay within model char limit."""
+def _split_text(text: str, max_chars: int = 200) -> list[str]:
+    """Split on sentence boundaries — XTTS works best with short chunks."""
     import re
     sentences = re.split(r"(?<=[.!?])\s+", text)
     chunks, current = [], ""
     for s in sentences:
         if len(current) + len(s) + 1 > max_chars and current:
-            chunks.append(current)
+            chunks.append(current.strip())
             current = s
         else:
             current = (current + " " + s).strip()
     if current:
-        chunks.append(current)
-    return chunks
+        chunks.append(current.strip())
+    return chunks or [text]
 
 
-async def text_to_speech(text: str, out_path: Path) -> bool:
-    """Generate Russian TTS from plain text using Silero."""
+def _generate_long(text: str, out_path: Path, speaker: str, speaker_wav: str | None) -> bool:
+    """Split long text into chunks, generate each, concatenate with ffmpeg."""
+    import tempfile
+    import ffmpeg
+
+    chunks = _split_text(text, max_chars=200)
+    if len(chunks) == 1:
+        return _generate(text, out_path, speaker, speaker_wav)
+
+    tmp_dir = out_path.parent
+    part_paths: list[Path] = []
+    try:
+        for i, chunk in enumerate(chunks):
+            if not chunk.strip():
+                continue
+            part = tmp_dir / f"{out_path.stem}_part{i}.wav"
+            if _generate(chunk, part, speaker, speaker_wav):
+                part_paths.append(part)
+
+        if not part_paths:
+            return False
+        if len(part_paths) == 1:
+            part_paths[0].rename(out_path)
+            return True
+
+        # Concatenate parts
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            for p in part_paths:
+                f.write(f"file '{p}'\n")
+            list_file = f.name
+        try:
+            ffmpeg.input(list_file, format="concat", safe=0).output(
+                str(out_path), acodec="pcm_s16le"
+            ).overwrite_output().run(quiet=True)
+        finally:
+            Path(list_file).unlink(missing_ok=True)
+
+        return out_path.exists() and out_path.stat().st_size > 0
+    finally:
+        for p in part_paths:
+            p.unlink(missing_ok=True)
+
+
+async def text_to_speech(
+    text: str,
+    out_path: Path,
+    speaker: str = DEFAULT_SPEAKER,
+    speaker_wav: str | None = None,
+) -> bool:
+    """Generate Russian TTS via XTTS-v2. Pass speaker_wav for voice cloning."""
     if not text.strip():
         return False
     try:
-        return await asyncio.to_thread(_generate, text, out_path)
+        return await asyncio.to_thread(_generate_long, text, out_path, speaker, speaker_wav)
     except Exception as e:
-        logger.error("Silero TTS failed: {}", e)
+        logger.error("XTTS-v2 TTS failed: {}", e)
         return False
 
 
-async def segments_to_speech(segments: list[dict], out_path: Path) -> bool:
+async def segments_to_speech(
+    segments: list[dict],
+    out_path: Path,
+    speaker: str = DEFAULT_SPEAKER,
+    speaker_wav: str | None = None,
+) -> bool:
     """Generate Russian TTS from translated segments."""
     text = " ".join(s["text"].strip() for s in segments if s.get("text", "").strip())
-    return await text_to_speech(text, out_path)
+    return await text_to_speech(text, out_path, speaker, speaker_wav)

@@ -140,7 +140,7 @@ async def dub_history_video(item: dict) -> dict | None:
 
     # 2. Transcribe in English (tiny model for speed on long videos)
     logger.info("Transcribing {:.0f}s video...", total)
-    segments = await transcribe(source, language="en", model_size="tiny")
+    segments = await transcribe(source, language="en", model_size="small")
     if not segments:
         logger.warning("No transcript for {}", url)
         source.unlink(missing_ok=True)
