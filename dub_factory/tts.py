@@ -15,13 +15,31 @@ _tts = None
 def _load_model():
     global _tts
     if _tts is None:
+        import os
         import torch
         from TTS.api import TTS
+
+        os.environ["COQUI_TOS_AGREED"] = "1"  # non-commercial CPML license
+
+        # PyTorch >=2.6 changed weights_only default to True, but TTS 0.22 checkpoints
+        # use pickle — patch torch.load to keep weights_only=False for this session.
+        _orig_load = torch.load
+        torch.load = lambda *a, **kw: _orig_load(*a, **{**{"weights_only": False}, **kw})
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.info("Loading XTTS-v2 on {}...", device)
         _tts = TTS(MODEL_NAME).to(device)
-        logger.info("XTTS-v2 ready | speakers: {}", len(_tts.speakers))
+        logger.info("XTTS-v2 ready")
+
+        torch.load = _orig_load  # restore after model is loaded
+
+        # TTS 0.22 bug: SpeakerManager.speaker_names calls .keys() on a dict_keys object.
+        # Patch it in-place so it works on any fresh venv without manual edits.
+        try:
+            from TTS.tts.layers.xtts.xtts_manager import SpeakerManager
+            SpeakerManager.speaker_names = property(lambda self: list(self.name_to_id))
+        except Exception:
+            pass
     return _tts
 
 
