@@ -1,6 +1,15 @@
 @echo off
+chcp 65001 >nul
 cd /d "%~dp0"
-call venv\Scripts\activate.bat
+
+if exist Yag\Scripts\activate.bat (
+    call Yag\Scripts\activate.bat
+) else if exist venv\Scripts\activate.bat (
+    call venv\Scripts\activate.bat
+) else (
+    echo [ERROR] venv не найден. Создай: python -m venv Yag
+    exit /b 1
+)
 
 echo Останавливаем старые процессы...
 taskkill /F /FI "WINDOWTITLE eq yag_admin*" >nul 2>&1
@@ -15,12 +24,14 @@ for /f "tokens=2" %%i in ('tasklist /FI "IMAGENAME eq python.exe" /FO LIST ^| fi
 echo Ожидаем освобождения сессии бота...
 timeout /t 5 /nobreak >nul
 
-start "yag_admin"     cmd /c "python -m tg_admin_bot.main  > logs\yag_admin.log    2>&1"
-start "yag_video"     cmd /c "python -m video_factory.main > logs\yag_video.log    2>&1"
-start "yag_publisher" cmd /c "python -m publisher.main     > logs\yag_publisher.log 2>&1"
+if not exist logs mkdir logs
+
+start "yag_admin"     cmd /c "chcp 65001 >nul & python -m tg_admin_bot.main  > logs\yag_admin.log    2>&1"
+start "yag_video"     cmd /c "chcp 65001 >nul & python -m video_factory.main > logs\yag_video.log    2>&1"
+start "yag_publisher" cmd /c "chcp 65001 >nul & python -m publisher.main     > logs\yag_publisher.log 2>&1"
 
 echo.
 echo [OK] Сервисы запущены
-echo      Admin bot     -^> logs\yag_admin.log
-echo      Video factory -^> logs\yag_video.log
-echo      Publisher     -^> logs\yag_publisher.log
+echo      Admin bot     -> logs\yag_admin.log
+echo      Video factory -> logs\yag_video.log
+echo      Publisher     -> logs\yag_publisher.log

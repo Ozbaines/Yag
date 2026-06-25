@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 echo Останавливаем все сервисы YAg...
 for /f "tokens=2" %%i in ('tasklist /FI "IMAGENAME eq python.exe" /FO LIST ^| find "PID:"') do (
     wmic process where "ProcessId=%%i and CommandLine like '%%tg_admin_bot%%'" delete >nul 2>&1
