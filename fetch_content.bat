@@ -2,12 +2,6 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 
-if exist content.off (
-    echo [OFF] Поиск видео отключён (файл content.off существует)
-    echo       Чтобы включить: del content.off
-    exit /b 0
-)
-
 if exist Yag\Scripts\activate.bat (
     call Yag\Scripts\activate.bat
 ) else if exist venv\Scripts\activate.bat (

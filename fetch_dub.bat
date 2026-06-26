@@ -2,12 +2,6 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 
-if exist dub.off (
-    echo [OFF] Озвучка отключена (файл dub.off существует)
-    echo       Чтобы включить: del dub.off
-    exit /b 0
-)
-
 if exist Yag\Scripts\activate.bat (
     call Yag\Scripts\activate.bat
 ) else if exist venv\Scripts\activate.bat (
